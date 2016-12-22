@@ -57,7 +57,7 @@ named!(pub parse_dns_header<Header>, do_parse!(
 //     );
 
 named!(pub parse_dns_name<Vec<&str> >, do_parse!(
-        ret: many_till!(map_res!(length_bytes!(be_u8), from_utf8), alt!(tag!("\0") | tag_bits!(u8, 2, 0xc0))) >>
+        ret: many_till!(map_res!(length_bytes!(be_u8), from_utf8), tag!("\0")) >>
         (ret.0)
         ));
 
