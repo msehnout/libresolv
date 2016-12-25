@@ -1,3 +1,5 @@
+#![feature(try_from)]
+
 //! # libdns - A DNS library for Rust programming language
 //!
 //! libdns provides essential data structures and functionality
@@ -9,6 +11,7 @@
 #[macro_use]
 extern crate nom;
 
+pub mod defs;
 pub mod rr;
 pub mod wire;
 pub mod message;
