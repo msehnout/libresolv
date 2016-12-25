@@ -14,18 +14,26 @@ use message::Header;
 ///    - a sequence of labels ending with a pointer
 /// ```
 #[derive(Debug, PartialEq)]
-pub enum DnsNameUnit {
+pub enum NameUnit {
     Label(String),
     Pointer(u16),
     End,
 }
 
 
-// TODO: toto pujde to message::mod.rs
+// TODO: toto pujde do message::mod.rs
 #[derive(Debug)]
-pub struct DnsMessage {
+pub struct Message {
     pub header: Header,
-    pub queries: Vec<Vec<DnsNameUnit>>,
+    pub queries: Vec<Vec<NameUnit>>,
+}
+
+// TODO: toto pujde do message::mod.rs
+#[derive(Debug)]
+pub struct Question {
+    name: Vec<NameUnit>,
+    qtype: u16,
+    class: u16,
 }
 
 named!(pub parse_dns_header<Header>, do_parse!(
@@ -54,39 +62,39 @@ named!(pub parse_dns_header<Header>, do_parse!(
             arcount: arcount,
         })));
 
-named!(pub parse_dns_name_label<DnsNameUnit>, map_res!(
+named!(pub parse_dns_name_label<NameUnit>, map_res!(
         length_bytes!(be_u8),
         |s: &[u8]| {
             match String::from_utf8(s.to_owned()) {
-                Ok(s) => Ok(DnsNameUnit::Label(s)),
+                Ok(s) => Ok(NameUnit::Label(s)),
                 Err(e) => Err(e)
             }
         }
         ));
 
-named!(pub parse_dns_name_pointer<DnsNameUnit>, map!(
+named!(pub parse_dns_name_pointer<NameUnit>, map!(
         bits!(pair!(tag_bits!(u16, 2, 0x03), take_bits!(u16, 14))),
-        |(_, p)| {DnsNameUnit::Pointer(p)}
+        |(_, p)| {NameUnit::Pointer(p)}
         ));
 
-named!(pub parse_dns_name_unit<DnsNameUnit>, alt!(parse_dns_name_pointer | parse_dns_name_label));
+named!(pub parse_dns_name_unit<NameUnit>, alt!(parse_dns_name_pointer | parse_dns_name_label));
 
-named!(pub parse_dns_name_bottom<DnsNameUnit>, alt!(
-        map!(tag!("\0"), |_| {DnsNameUnit::End})
+named!(pub parse_dns_name_bottom<NameUnit>, alt!(
+        map!(tag!("\0"), |_| {NameUnit::End})
         | parse_dns_name_pointer));
 
-named!(pub parse_dns_name<Vec<DnsNameUnit> >, map!(
+named!(pub parse_dns_name<Vec<NameUnit> >, map!(
         many_till!(parse_dns_name_label, parse_dns_name_bottom),
-        |(mut v, b): (Vec<DnsNameUnit>, DnsNameUnit)| {
+        |(mut v, b): (Vec<NameUnit>, NameUnit)| {
             v.push(b);
             return v;
         }
         ));
 
-named!(pub parse_dns_message<DnsMessage>, do_parse!(
+named!(pub parse_dns_message<Message>, do_parse!(
         header: parse_dns_header >>
         names: count!(parse_dns_name, header.qdcount as usize) >>
-        ( DnsMessage {
+        ( Message {
             header: header,
             queries: names,
         })));

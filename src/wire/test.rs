@@ -24,34 +24,34 @@ fn test_parse_dns_header() {
 fn test_parse_dns_name_label() {
     let input = b"\x05abcde";
     let output = msg::parse_dns_name_label(&input[..]).unwrap().1;
-    assert_eq!(output, msg::DnsNameUnit::Label("abcde".to_string()));
+    assert_eq!(output, msg::NameUnit::Label("abcde".to_string()));
 }
 
 #[test]
 fn test_parse_dns_name_pointer() {
     let input = b"\xc0\x0c";
     let output = msg::parse_dns_name_pointer(&input[..]).unwrap().1;
-    assert_eq!(output, msg::DnsNameUnit::Pointer(0x0c));
+    assert_eq!(output, msg::NameUnit::Pointer(0x0c));
 }
 
 #[test]
 fn test_parse_dns_name_unit() {
     let input = b"\xf2\x35";
     let output = msg::parse_dns_name_unit(&input[..]).unwrap().1;
-    assert_eq!(output, msg::DnsNameUnit::Pointer(0x3235));
+    assert_eq!(output, msg::NameUnit::Pointer(0x3235));
     let input = b"\x08abcde123";
     let output = msg::parse_dns_name_unit(&input[..]).unwrap().1;
-    assert_eq!(output, msg::DnsNameUnit::Label("abcde123".to_string()));
+    assert_eq!(output, msg::NameUnit::Label("abcde123".to_string()));
 }
 
 #[test]
 fn test_parse_dns_name_bottom() {
     let input = b"\x00\xf2\x35";
     let output = msg::parse_dns_name_bottom(&input[..]).unwrap().1;
-    assert_eq!(output, msg::DnsNameUnit::End);
+    assert_eq!(output, msg::NameUnit::End);
     let input = b"\xf2\x35";
     let output = msg::parse_dns_name_unit(&input[..]).unwrap().1;
-    assert_eq!(output, msg::DnsNameUnit::Pointer(0x3235));
+    assert_eq!(output, msg::NameUnit::Pointer(0x3235));
 }
 
 #[test]
@@ -59,16 +59,16 @@ fn test_parse_dns_name() {
     let input = b"\x05abcde\x04abcd\x03abc\x00";
     let output = msg::parse_dns_name(&input[..]).unwrap().1;
     assert_eq!(output, vec![
-    msg::DnsNameUnit::Label(String::from("abcde")),
-    msg::DnsNameUnit::Label(String::from("abcd")),
-    msg::DnsNameUnit::Label(String::from("abc")),
-    msg::DnsNameUnit::End,
+    msg::NameUnit::Label(String::from("abcde")),
+    msg::NameUnit::Label(String::from("abcd")),
+    msg::NameUnit::Label(String::from("abc")),
+    msg::NameUnit::End,
     ]);
     let input = b"\x05abcde\xc0\x01";
     let output = msg::parse_dns_name(&input[..]).unwrap().1;
     assert_eq!(output, vec![
-    msg::DnsNameUnit::Label(String::from("abcde")),
-    msg::DnsNameUnit::Pointer(1),
+    msg::NameUnit::Label(String::from("abcde")),
+    msg::NameUnit::Pointer(1),
     ]);
 }
 
@@ -80,9 +80,9 @@ fn test_parse_query() {
     let q = msg::parse_dns_message(&input[..]).unwrap().1;
     println!("{:?}", q);
     assert_eq!(q.queries[0], vec![
-    msg::DnsNameUnit::Label(String::from("nic")),
-    msg::DnsNameUnit::Label(String::from("cz")),
-    msg::DnsNameUnit::End,
+    msg::NameUnit::Label(String::from("nic")),
+    msg::NameUnit::Label(String::from("cz")),
+    msg::NameUnit::End,
     ]);
 }
 
