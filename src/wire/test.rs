@@ -79,7 +79,7 @@ fn test_parse_query() {
     0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
     let q = msg::parse_dns_message(&input[..]).unwrap().1;
     println!("{:?}", q);
-    assert_eq!(q.queries[0], vec![
+    assert_eq!(q.queries[0].name, vec![
     msg::NameUnit::Label(String::from("nic")),
     msg::NameUnit::Label(String::from("cz")),
     msg::NameUnit::End,

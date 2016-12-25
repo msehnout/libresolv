@@ -20,20 +20,19 @@ pub enum NameUnit {
     End,
 }
 
-
 // TODO: toto pujde do message::mod.rs
 #[derive(Debug)]
 pub struct Message {
     pub header: Header,
-    pub queries: Vec<Vec<NameUnit>>,
+    pub queries: Vec<Question>,
 }
 
 // TODO: toto pujde do message::mod.rs
 #[derive(Debug)]
 pub struct Question {
-    name: Vec<NameUnit>,
-    qtype: u16,
-    class: u16,
+    pub name: Vec<NameUnit>,
+    pub qtype: u16,
+    pub class: u16,
 }
 
 named!(pub parse_dns_header<Header>, do_parse!(
@@ -91,12 +90,22 @@ named!(pub parse_dns_name<Vec<NameUnit> >, map!(
         }
         ));
 
+named!(pub parse_dns_question<Question>, do_parse!(
+        name: parse_dns_name >>
+        qtype: be_u16 >>
+        class: be_u16 >>
+        ( Question {
+            name: name,
+            qtype: qtype,
+            class: class,
+        })));
+
 named!(pub parse_dns_message<Message>, do_parse!(
         header: parse_dns_header >>
-        names: count!(parse_dns_name, header.qdcount as usize) >>
+        questions: count!(parse_dns_question, header.qdcount as usize) >>
         ( Message {
             header: header,
-            queries: names,
+            queries: questions,
         })));
 
 // //, take_bits!(u16, 14)
