@@ -1,7 +1,7 @@
 //! From&To wire
 
 use std;
-use ::message::Header;
+use message::Header;
 
 pub mod msg;
 mod test;
@@ -13,6 +13,7 @@ pub trait ToWire {
     fn to_wire(&self) -> Vec<u8>;
 }
 
+// TODO: tady bude asi potřeba vytvořit vlastní chybovy typ a vracet ho nějak..
 pub trait FromWire
 where Self: std::marker::Sized
 {

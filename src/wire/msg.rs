@@ -1,7 +1,7 @@
 use std;
 use std::str::from_utf8;
 use nom::{be_u8, be_u16};
-use ::message::Header;
+use message::Header;
 
 /// Each label is either a length byte followed by that number of bytes or a pointer to prior
 /// occurrence of the same label. From RFC:
@@ -17,6 +17,15 @@ use ::message::Header;
 pub enum DnsNameUnit {
     Label(String),
     Pointer(u16),
+    End,
+}
+
+
+// TODO: toto pujde to message::mod.rs
+#[derive(Debug)]
+pub struct DnsMessage {
+    pub header: Header,
+    pub queries: Vec<Vec<DnsNameUnit>>,
 }
 
 named!(pub parse_dns_header<Header>, do_parse!(
@@ -55,12 +64,32 @@ named!(pub parse_dns_name_label<DnsNameUnit>, map_res!(
         }
         ));
 
-named!(pub parse_dns_name_pointer<DnsNameUnit>, map_res!(
+named!(pub parse_dns_name_pointer<DnsNameUnit>, map!(
         bits!(pair!(tag_bits!(u16, 2, 0x03), take_bits!(u16, 14))),
-        |(_, p)| -> Result<_, ()> {Ok(DnsNameUnit::Pointer(p))}
+        |(_, p)| {DnsNameUnit::Pointer(p)}
         ));
 
 named!(pub parse_dns_name_unit<DnsNameUnit>, alt!(parse_dns_name_pointer | parse_dns_name_label));
+
+named!(pub parse_dns_name_bottom<DnsNameUnit>, alt!(
+        map!(tag!("\0"), |_| {DnsNameUnit::End})
+        | parse_dns_name_pointer));
+
+named!(pub parse_dns_name<Vec<DnsNameUnit> >, map!(
+        many_till!(parse_dns_name_label, parse_dns_name_bottom),
+        |(mut v, b): (Vec<DnsNameUnit>, DnsNameUnit)| {
+            v.push(b);
+            return v;
+        }
+        ));
+
+named!(pub parse_dns_message<DnsMessage>, do_parse!(
+        header: parse_dns_header >>
+        names: count!(parse_dns_name, header.qdcount as usize) >>
+        ( DnsMessage {
+            header: header,
+            queries: names,
+        })));
 
 // //, take_bits!(u16, 14)
 // named!(pub parse_dns_name<Vec<&str> >, do_parse!(
