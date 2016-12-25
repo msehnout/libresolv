@@ -13,9 +13,8 @@ use ::message::Header;
 ///    - a pointer
 ///    - a sequence of labels ending with a pointer
 /// ```
-
-#[derive(Debug)]
-pub enum DnsNameLabel {
+#[derive(Debug, PartialEq)]
+pub enum DnsNameUnit {
     Label(String),
     Pointer(u16),
 }
@@ -46,22 +45,22 @@ named!(pub parse_dns_header<Header>, do_parse!(
             arcount: arcount,
         })));
 
-named!(pub parse_dns_name_label<DnsNameLabel>, map_res!(
+named!(pub parse_dns_name_label<DnsNameUnit>, map_res!(
         length_bytes!(be_u8),
         |s: &[u8]| {
             match String::from_utf8(s.to_owned()) {
-                Ok(s) => Ok(DnsNameLabel::Label(s)),
+                Ok(s) => Ok(DnsNameUnit::Label(s)),
                 Err(e) => Err(e)
             }
         }
         ));
 
-named!(pub parse_dns_name_pointer<DnsNameLabel>, map_res!(
+named!(pub parse_dns_name_pointer<DnsNameUnit>, map_res!(
         bits!(pair!(tag_bits!(u16, 2, 0x03), take_bits!(u16, 14))),
-        |(_, p)| -> Result<_, ()> {Ok(DnsNameLabel::Pointer(p))}
+        |(_, p)| -> Result<_, ()> {Ok(DnsNameUnit::Pointer(p))}
         ));
 
-named!(pub parse_dns_name_unit<DnsNameLabel>, alt!(parse_dns_name_pointer | parse_dns_name_label));
+named!(pub parse_dns_name_unit<DnsNameUnit>, alt!(parse_dns_name_pointer | parse_dns_name_label));
 
 // //, take_bits!(u16, 14)
 // named!(pub parse_dns_name<Vec<&str> >, do_parse!(

@@ -1,15 +1,50 @@
 use wire::msg::*;
+use message::Header;
 
 #[test]
-fn print_parse_dns_header() {
+fn test_parse_dns_header() {
     let test = vec![0xc9, 0xba, 0x01, 0x20, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x07,
     0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x03, 0x63, 0x6f, 0x6d, 0x00, 0x00,
     0x01, 0x00, 0x01, 0x00, 0x00, 0x29, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 
-    println!("{:?}", parse_dns_header(&test));
+    let test: Header = parse_dns_header(&test).unwrap().1;
+    // TODO: test all parameters
+    assert_eq!(test.id, 0xc9ba);
+    assert_eq!(test.response, false);
+    assert_eq!(test.tc, false);
+    assert_eq!(test.rd, true);
+    assert_eq!(test.qdcount, 1);
+    assert_eq!(test.ancount, 0);
+    assert_eq!(test.nscount, 0);
+    assert_eq!(test.arcount, 1);
 
 }
-// 
+
+#[test]
+fn test_parse_dns_name_label() {
+    let input = b"\x05abcde";
+    let output = parse_dns_name_label(&input[..]).unwrap().1;
+    assert_eq!(output, DnsNameUnit::Label("abcde".to_string()));
+}
+
+#[test]
+fn test_parse_dns_name_pointer() {
+    let input = b"\xc0\x0c";
+    let output = parse_dns_name_pointer(&input[..]).unwrap().1;
+    assert_eq!(output, DnsNameUnit::Pointer(0x0c));
+}
+
+#[test]
+fn test_parse_dns_name_unit() {
+    let input = b"\xf2\x35";
+    let output = parse_dns_name_unit(&input[..]).unwrap().1;
+    assert_eq!(output, DnsNameUnit::Pointer(0x3235));
+    let input = b"\x08abcde123";
+    let output = parse_dns_name_unit(&input[..]).unwrap().1;
+    assert_eq!(output, DnsNameUnit::Label("abcde123".to_string()));
+}
+
+//
 // #[test]
 // fn parse_name_simple() {
 //     let name = "test.example.com.";
