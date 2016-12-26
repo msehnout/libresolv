@@ -5,7 +5,7 @@
 //! All communications inside of the domain protocol are carried in a single
 //! format called a message.  The top level format of message is divided
 //! into 5 sections (some of which are empty in certain cases) shown below:
-//! 
+//!
 //!     +---------------------+
 //!     |        Header       |
 //!     +---------------------+

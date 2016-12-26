@@ -107,14 +107,14 @@ fn test_parse_query() {
 //         buffer.extend(label.as_bytes().iter().cloned());
 //     }
 //     buffer.push(0);
-// 
+//
 //     // TODO: Parse the name in wire format
 //     let labels: Vec<&str> = msg::parse_dns_name(&buffer[..]).unwrap().1;
 //     // POZOR: na konci je prazdny label
 //     let result = labels.join(".");
 //     assert_eq!(result, "test.example.com")
 // }
-// 
+//
 // #[test]
 // fn parse_name_2() {
 //     let name = "test.example.com.";
@@ -129,14 +129,13 @@ fn test_parse_query() {
 //     buffer.push(5);
 //     buffer.extend(b"abcde");
 //     buffer.push(0);
-// 
+//
 //     let labels = msg::parse_dns_name(&buffer[..]).unwrap().1;
 //     let result = labels.join(".");
 //     assert_eq!(result, "test.example.com")
 // }
-// 
+//
 
-// 
 // #[test]
 // fn parse_query2() {
 //     let input = vec![0x48, 0xe0, 0x01, 0x20, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,

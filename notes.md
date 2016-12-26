@@ -14,3 +14,7 @@ nebo na parsovani cele te zpravy nepouzivat makro, ale vlastni funkci a jen z ni
 * ref docs are quite concise
 * lets write some, once I understand it! :-D
 * Found awesome tool: cargo expand (https://github.com/dtolnay/cargo-expand) ... and it's even more awesome with pygments
+
+# Ostatni:
+Precti si nejaky doporuceni na psani knihoven, jesli mam pouzivat radeji vec nebo slice
+Coz takle vracet z tech parseru dvojici RR, Vec<NameUnit> at to nemusim mit 2x definovane?

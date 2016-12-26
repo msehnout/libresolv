@@ -1,7 +1,12 @@
 use std;
+use std::convert::From;
+use std::net::Ipv4Addr;
 use std::str::from_utf8;
-use nom::{be_u8, be_u16};
+
+use nom::{be_u8, be_u16, be_u32};
+
 use message::Header;
+use rr::Rdata;
 
 /// Each label is either a length byte followed by that number of bytes or a pointer to prior
 /// occurrence of the same label. From RFC:
@@ -24,7 +29,10 @@ pub enum NameUnit {
 #[derive(Debug)]
 pub struct Message {
     pub header: Header,
-    pub queries: Vec<Question>,
+    pub queries: Vec<Question>, //TODO: rename as question
+    pub answer: Vec<ResRec>,
+    pub authority: Vec<ResRec>,
+    pub additional: Vec<ResRec>,
 }
 
 // TODO: toto pujde do message::mod.rs
@@ -33,6 +41,16 @@ pub struct Question {
     pub name: Vec<NameUnit>,
     pub qtype: u16,
     pub class: u16,
+}
+
+// TODO: toto pujde do rr.rs
+#[derive(Debug)]
+pub struct ResRec {
+    pub name: Vec<NameUnit>,
+    pub qtype: u16,
+    pub class: u16,
+    pub ttl: u32,
+    pub rdata: Rdata,
 }
 
 named!(pub parse_dns_header<Header>, do_parse!(
@@ -53,7 +71,7 @@ named!(pub parse_dns_header<Header>, do_parse!(
             rd: third_byte.4 == 1,
             ra: fourth_byte.0 == 1,
             z:  fourth_byte.1,
-            // TODO: replace with tag of four zeros.. not true any more, read newer RFCs!
+// TODO: replace with tag of four zeros.. not true any more, read newer RFCs!
             rcode: fourth_byte.2,
             qdcount: qdcount,
             ancount: ancount,
@@ -100,73 +118,50 @@ named!(pub parse_dns_question<Question>, do_parse!(
             class: class,
         })));
 
+named!(pub parse_dns_rr<ResRec>, do_parse!(
+        name: parse_dns_name >>
+        qtype: be_u16 >>
+        class: be_u16 >>
+        ttl: be_u32 >>
+        rdata: length_bytes!(be_u16) >>
+        // rdata: switch!(qtype,
+        //     1 => map!(be_u32, |a| {Rdata::A(Ipv4Addr::from(a))})
+        //     | _ => map!(length_bytes!(be_u16), |s| {Rdata::Generic(s.to_owned())})
+        // ) >>
+        ( ResRec {
+            name: name,
+            qtype: qtype,
+            class: class,
+            ttl: ttl,
+            // TODO: switch based on qtype enum
+            // rdata: rdata,
+            //rdata: Rdata::Generic(rdata.to_owned()),
+            rdata: {
+                match qtype {
+                    1 => {
+                        let mut addr = [0u8; 4];
+                        for i in 0..4 {
+                            addr[i] = rdata[i];
+                        }
+                        Rdata::A(Ipv4Addr::from(addr))
+                    }
+                    _ => Rdata::Generic(rdata.to_owned()),
+                }
+            }
+        })));
+
 named!(pub parse_dns_message<Message>, do_parse!(
         header: parse_dns_header >>
         questions: count!(parse_dns_question, header.qdcount as usize) >>
+        answer: count!(parse_dns_rr, header.ancount as usize) >>
+        authority: count!(parse_dns_rr, header.nscount as usize) >>
+        additional: count!(parse_dns_rr, header.arcount as usize) >>
         ( Message {
             header: header,
             queries: questions,
+            answer: answer,
+            authority: authority,
+            additional: additional,
         })));
 
-// //, take_bits!(u16, 14)
-// named!(pub parse_dns_name<Vec<&str> >, do_parse!(
-//         ret: many_till!(map_res!(length_bytes!(be_u8), str::from_utf8), tag!("\0")) >>
-//         (ret.0)
-//         ));
-// 
-// named!(pub parse_dns_name2< Vec<&str> >,
-//     terminated!(
-//         flat_map!(
-//             is_not!("\x00"),
-//             many0!(parse_dns_name_label)
-//         ),
-//         tag!("\x00")
-//     )
-// );
-// 
-// // POZOR na ty >> v typu
-// // named!(pub parse_dns_name_inner<Vec<&str> >, many0!(map_res!(length_bytes!(be_u8), from_utf8)));
-// 
-// // Alternativa:
-// // + DEJ tam ten terminated!
-// // named!(pub parse_dns_name< Vec<&str> >,
-// //         flat_map!(
-// //             is_not!("\x00"),
-// //             many0!(map_res!(length_bytes!(be_u8), str::from_utf8))
-// //         )
-// //     );
-// 
-// // named!(pub parse_dns_name<Vec<&str> >, do_parse!(
-// //         ret: many_till!(map_res!(length_bytes!(be_u8), from_utf8), tag!("\0")) >>
-// //         (ret.0)
-// //         ));
-// 
-// #[derive(Debug)]
-// pub struct DnsQuery {
-//     header: Header,
-//     names: Vec<String>,
-// }
-// 
-// 
-// 
-// #[derive(Debug)]
-// pub struct DnsQuery2 {
-//     header: Header,
-//     names: Vec<Vec<DnsNameLabel>>,
-// }
-// 
-// named!(pub parse_dns_query<DnsQuery>, do_parse!(
-//         header: parse_dns_header >>
-//         names: count!(parse_dns_name, header.qdcount as usize) >>
-//         ( DnsQuery {
-//             header: header,
-//             names: names.into_iter().map(|name| String::from(name.join("."))).collect(),
-//         })));
-// 
-// named!(pub parse_dns_query2<DnsQuery2>, do_parse!(
-//         header: parse_dns_header >>
-//         names: count!(parse_dns_name, header.qdcount as usize) >>
-//         ( DnsQuery2 {
-//             header: header,
-//             names: names.into_iter().map(|name| name.into_iter().map(|label| DnsNameLabel::Label(String::from(label))).collect()).collect(),
-//         })));
+

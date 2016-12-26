@@ -15,7 +15,7 @@ pub trait ToWire {
 
 // TODO: tady bude asi potřeba vytvořit vlastní chybovy typ a vracet ho nějak..
 pub trait FromWire
-where Self: std::marker::Sized
+    where Self: std::marker::Sized
 {
     fn from_wire(&[u8]) -> Option<Self>;
 }
