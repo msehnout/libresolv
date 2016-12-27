@@ -1,7 +1,9 @@
 [package]
 name = "libdns"
 version = "0.1.0"
-authors = ["Sehny <sehnoutka.martin@gmail.com>"]
+authors = ["Sehny <msehnout@users.noreply.github.com>"]
+description = "Tiny DNS library"
+license = "MIT"
 
 [dependencies]
 nom = "2.0"
