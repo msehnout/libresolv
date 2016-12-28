@@ -19,6 +19,8 @@
 //!     +---------------------+
 //! ```
 
+use rr::ResRec;
+
 
 /// Message header
 #[derive(Debug)]
@@ -53,4 +55,51 @@ pub struct Header {
     pub nscount: u16,
     /// Number of additional records
     pub arcount: u16,
+}
+
+
+#[derive(Debug)]
+pub struct Message {
+    pub header: Header,
+    pub question: Vec<Question>,
+    pub answer: Vec<ResRec>,
+    pub authority: Vec<ResRec>,
+    pub additional: Vec<ResRec>,
+}
+
+#[derive(Debug)]
+pub struct Question {
+    pub name: String,
+    pub qtype: u16,
+    pub class: u16,
+}
+
+#[derive(Debug)]
+pub struct QuestionBuilder {
+    name: Option<String>,
+    qtype: u16,
+    class: u16,
+}
+
+impl QuestionBuilder {
+    pub fn no_name(qtype: u16, class: u16) -> QuestionBuilder {
+        QuestionBuilder {
+            name: None,
+            qtype: qtype,
+            class: class,
+        }
+    }
+
+    pub fn set_name(mut self, name: String) -> QuestionBuilder {
+        self.name = Some(name);
+        self
+    }
+
+    pub fn finish(self) -> Question {
+        Question {
+            name: self.name.unwrap_or("".to_string()),
+            qtype: self.qtype,
+            class: self.class,
+        }
+    }
 }
