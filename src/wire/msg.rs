@@ -3,8 +3,9 @@ use std::convert::From;
 use std::net::Ipv4Addr;
 use std::str::from_utf8;
 
-use nom::{be_u8, be_u16, be_u32};
+use nom::{be_u8, be_u16, be_u32, IResult};
 
+use error::Error;
 use message::Header;
 use rr::Rdata;
 
@@ -29,7 +30,7 @@ pub enum NameUnit {
 #[derive(Debug)]
 pub struct Message {
     pub header: Header,
-    pub queries: Vec<Question>, //TODO: rename as question
+    pub question: Vec<Question>,
     pub answer: Vec<ResRec>,
     pub authority: Vec<ResRec>,
     pub additional: Vec<ResRec>,
@@ -38,19 +39,90 @@ pub struct Message {
 // TODO: toto pujde do message::mod.rs
 #[derive(Debug)]
 pub struct Question {
-    pub name: Vec<NameUnit>,
+    pub name: String,
     pub qtype: u16,
     pub class: u16,
+}
+
+#[derive(Debug)]
+pub struct QuestionBuilder {
+    name: Option<String>,
+    qtype: u16,
+    class: u16,
+}
+
+impl QuestionBuilder {
+    pub fn no_name(qtype: u16, class: u16) -> QuestionBuilder {
+        QuestionBuilder {
+            name: None,
+            qtype: qtype,
+            class: class,
+        }
+    }
+
+    pub fn set_name(mut self, name: String) -> QuestionBuilder {
+        self.name = Some(name);
+        self
+    }
+
+    pub fn finish(mut self) -> Question {
+        Question {
+            name: self.name.unwrap_or("".to_string()),
+            qtype: self.qtype,
+            class: self.class,
+        }
+    }
 }
 
 // TODO: toto pujde do rr.rs
 #[derive(Debug)]
 pub struct ResRec {
-    pub name: Vec<NameUnit>,
+    pub name: String,
     pub qtype: u16,
     pub class: u16,
     pub ttl: u32,
     pub rdata: Rdata,
+}
+
+#[derive(Debug)]
+pub struct ResRecBuilder {
+    name: Option<String>,
+    qtype: u16,
+    class: u16,
+    ttl: u32,
+    rdata: Option<Rdata>,
+}
+
+impl ResRecBuilder {
+    pub fn no_name(qtype: u16, class: u16, ttl: u32) -> ResRecBuilder {
+        ResRecBuilder {
+            name: None,
+            qtype: qtype,
+            class: class,
+            ttl: ttl,
+            rdata: None,
+        }
+    }
+
+    pub fn set_name(mut self, name: String) -> ResRecBuilder {
+        self.name = Some(name);
+        self
+    }
+
+    pub fn set_rdata(mut self, rdata: Rdata) -> ResRecBuilder {
+        self.rdata = Some(rdata);
+        self
+    }
+
+    pub fn finnish(self) -> ResRec {
+        ResRec {
+            name: self.name.unwrap_or("".to_string()),
+            qtype: self.qtype,
+            class: self.class,
+            ttl: self.ttl,
+            rdata: self.rdata.unwrap_or(Rdata::Generic(vec![])),
+        }
+    }
 }
 
 named!(pub parse_dns_header<Header>, do_parse!(
@@ -108,60 +180,40 @@ named!(pub parse_dns_name<Vec<NameUnit> >, map!(
         }
         ));
 
-named!(pub parse_dns_question<Question>, do_parse!(
+named!(pub parse_dns_question<(QuestionBuilder, Vec<NameUnit>)>, do_parse!(
         name: parse_dns_name >>
         qtype: be_u16 >>
         class: be_u16 >>
-        ( Question {
-            name: name,
-            qtype: qtype,
-            class: class,
-        })));
+        ( (QuestionBuilder::no_name(qtype, class), name)
+        )));
 
-named!(pub parse_dns_rr<ResRec>, do_parse!(
-        name: parse_dns_name >>
-        qtype: be_u16 >>
-        class: be_u16 >>
-        ttl: be_u32 >>
-        rdata: length_bytes!(be_u16) >>
-        // rdata: switch!(qtype,
-        //     1 => map!(be_u32, |a| {Rdata::A(Ipv4Addr::from(a))})
-        //     | _ => map!(length_bytes!(be_u16), |s| {Rdata::Generic(s.to_owned())})
-        // ) >>
-        ( ResRec {
-            name: name,
-            qtype: qtype,
-            class: class,
-            ttl: ttl,
-            // TODO: switch based on qtype enum
-            // rdata: rdata,
-            //rdata: Rdata::Generic(rdata.to_owned()),
-            rdata: {
-                match qtype {
-                    1 => {
-                        let mut addr = [0u8; 4];
-                        for i in 0..4 {
-                            addr[i] = rdata[i];
-                        }
-                        Rdata::A(Ipv4Addr::from(addr))
-                    }
-                    _ => Rdata::Generic(rdata.to_owned()),
-                }
-            }
-        })));
+pub fn parse_dns_rr(input: &[u8]) -> IResult<&[u8], (ResRecBuilder, Vec<NameUnit>, &[u8])> {
+    do_parse!(input,
+    name: parse_dns_name >>
+    qtype: be_u16 >>
+    class: be_u16 >>
+    ttl: be_u32 >>
+    rdata: length_bytes!(be_u16) >>
+    ( ResRecBuilder::no_name(qtype, class, ttl), name, rdata ))
+}
 
-named!(pub parse_dns_message<Message>, do_parse!(
-        header: parse_dns_header >>
-        questions: count!(parse_dns_question, header.qdcount as usize) >>
-        answer: count!(parse_dns_rr, header.ancount as usize) >>
-        authority: count!(parse_dns_rr, header.nscount as usize) >>
-        additional: count!(parse_dns_rr, header.arcount as usize) >>
-        ( Message {
-            header: header,
-            queries: questions,
-            answer: answer,
-            authority: authority,
-            additional: additional,
-        })));
+pub fn parse_dns_message(input: &[u8]) -> IResult<&[u8], Message> {
+    let (rest, header) = try_parse!(input, parse_dns_header);
+    let (rest, questions) = try_parse!(rest, count!(parse_dns_question, header.qdcount as usize));
+    let (rest, answers) = try_parse!(rest, count!(parse_dns_rr, header.ancount as usize));
+    let (rest, authority_list) = try_parse!(rest, count!(parse_dns_rr, header.nscount as usize));
+    let (rest, additional_list) = try_parse!(rest, count!(parse_dns_rr, header.arcount as usize));
 
+    // Ted potrebuju predelat vsechny name unit na string
+
+    // Potom rdata na neco
+
+    IResult::Done(&rest[..], Message {
+        header: header,
+        question: vec![],
+        answer: vec![],
+        authority: vec![],
+        additional: vec![]
+    })
+}
 

@@ -12,7 +12,7 @@
 extern crate nom;
 
 pub mod defs;
+pub mod error;
+pub mod message;
 pub mod rr;
 pub mod wire;
-pub mod message;
-
