@@ -1,7 +1,9 @@
+use std::convert::TryFrom;
 use std::net::Ipv4Addr;
 
 use nom::{be_u8, be_u16, be_u32, IResult, Needed};
 
+use defs::TYPE;
 use message::{Header, Message, Question, QuestionBuilder};
 use rr::{Rdata, ResRec, ResRecBuilder};
 
@@ -186,6 +188,9 @@ pub fn parse_dns_message(input: &[u8]) -> IResult<&[u8], Message> {
     let mut process_answers = Vec::with_capacity(answers.len());
     for (builder, vec_units, rdata) in answers.into_iter() {
         let qtype = builder.qtype;
+        if let Err(_) = TYPE::try_from(qtype) {
+            return IResult::Error(::nom::ErrorKind::Custom(0))
+        }
         let name = match decompress_name(&input, vec_units) {
             IResult::Done(_, name) => name,
             _ => return IResult::Error(::nom::ErrorKind::Custom(0)),

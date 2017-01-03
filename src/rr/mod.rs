@@ -2,7 +2,10 @@
 //!
 //!
 
+use std::convert::TryFrom;
 use std::net::Ipv4Addr;
+
+use defs::TYPE;
 
 #[derive(Debug,PartialEq)]
 pub enum Rdata {
@@ -16,7 +19,7 @@ pub enum Rdata {
 #[derive(Debug)]
 pub struct ResRec {
     pub name: String,
-    pub qtype: u16,
+    pub qtype: TYPE,
     pub class: u16,
     pub ttl: u32,
     pub rdata: Rdata,
@@ -55,7 +58,7 @@ impl ResRecBuilder {
     pub fn finish(self) -> ResRec {
         ResRec {
             name: self.name.unwrap_or("".to_string()),
-            qtype: self.qtype,
+            qtype: TYPE::try_from(self.qtype).unwrap_or(TYPE::NULL),
             class: self.class,
             ttl: self.ttl,
             rdata: self.rdata.unwrap_or(Rdata::Generic(vec![])),

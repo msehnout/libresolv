@@ -19,8 +19,10 @@
 //!     +---------------------+
 //! ```
 
+use defs::TYPE;
 use rr::ResRec;
 
+use std::convert::TryFrom;
 
 /// Message header
 #[derive(Debug)]
@@ -70,7 +72,7 @@ pub struct Message {
 #[derive(Debug)]
 pub struct Question {
     pub name: String,
-    pub qtype: u16,
+    pub qtype: TYPE,
     pub class: u16,
 }
 
@@ -118,7 +120,9 @@ impl QuestionBuilder {
     pub fn finish(self) -> Question {
         Question {
             name: self.name.unwrap_or("".to_string()),
-            qtype: self.qtype,
+            // hmmm ... this should not happen, but in order to preserve
+            // Builder patter, I'd like to return QuestionBuilder only
+            qtype: TYPE::try_from(self.qtype).unwrap_or(TYPE::NULL),
             class: self.class,
         }
     }
