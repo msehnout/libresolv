@@ -6,6 +6,8 @@ use std::net::Ipv4Addr;
 
 #[derive(Debug,PartialEq)]
 pub enum Rdata {
+    // XXX: What about not using type name as variants, but
+    // use IPv4, IPv6, Name etc. instead. => Less variants
     A(Ipv4Addr),
     CName(String),
     Generic(Vec<u8>),

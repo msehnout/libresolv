@@ -41,6 +41,7 @@ pub enum TYPE {
 }
 
 impl TryFrom<u16> for TYPE {
+    // TODO: use Error module
     type Err = &'static str;
     fn try_from(num: u16) -> Result<Self, Self::Err> {
         match num {

@@ -3,6 +3,9 @@
 use std;
 use std::slice;
 use message::{Header, Message, Question, QuestionBuilder};
+use error::Error;
+
+use nom::IResult;
 
 pub mod msg;
 
@@ -21,7 +24,7 @@ pub trait ToWire {
 pub trait FromWire
     where Self: std::marker::Sized
 {
-    fn from_wire(&[u8]) -> Option<Self>;
+    fn from_wire(&[u8]) -> Result<(&[u8], Self), Error>; //Option<Self>;
 }
 
 impl ToWire for u16 {
@@ -31,8 +34,8 @@ impl ToWire for u16 {
 }
 
 impl FromWire for Header {
-    fn from_wire(input: &[u8]) -> Option<Self> {
-        Some(msg::parse_dns_header(input).unwrap().1)
+    fn from_wire(input: &[u8]) -> Result<(&[u8], Self), Error> {
+        Ok((input, msg::parse_dns_header(input).unwrap().1))
     }
 }
 
@@ -80,8 +83,12 @@ impl ToWire for Message {
 }
 
 impl FromWire for Message {
-    fn from_wire(input: &[u8]) -> Option<Self> {
-        Some(msg::parse_dns_message(input).unwrap().1)
+    fn from_wire(input: &[u8]) -> Result<(&[u8], Self), Error> {
+        //Ok(msg::parse_dns_message(input).unwrap().1)
+        match msg::parse_dns_message(input) {
+            IResult::Done(rest, msg) => Ok((rest, msg)),
+            _ => Err(Error::Other),
+        }
     }
 }
 
