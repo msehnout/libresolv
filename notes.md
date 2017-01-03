@@ -18,3 +18,5 @@ nebo na parsovani cele te zpravy nepouzivat makro, ale vlastni funkci a jen z ni
 # Ostatni:
 Precti si nejaky doporuceni na psani knihoven, jesli mam pouzivat radeji vec nebo slice
 Coz takle vracet z tech parseru dvojici RR, Vec<NameUnit> at to nemusim mit 2x definovane?
+u tech builderu naimplementovat default metodu a setry na vsechno
+https://pascalhertleif.de/artikel/good-practices-for-writing-rust-libraries/

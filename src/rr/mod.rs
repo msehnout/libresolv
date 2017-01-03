@@ -7,6 +7,7 @@ use std::net::Ipv4Addr;
 #[derive(Debug,PartialEq)]
 pub enum Rdata {
     A(Ipv4Addr),
+    CName(String),
     Generic(Vec<u8>),
 }
 

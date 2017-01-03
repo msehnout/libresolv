@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 
-use nom::{be_u8, be_u16, be_u32, IResult};
+use nom::{be_u8, be_u16, be_u32, IResult, Needed};
 
 use message::{Header, Message, Question, QuestionBuilder};
 use rr::{Rdata, ResRec, ResRecBuilder};
@@ -120,7 +120,7 @@ pub fn parse_dns_rr(input: &[u8]) -> IResult<&[u8], (ResRecBuilder, Vec<NameUnit
     ( ResRecBuilder::no_name(qtype, class, ttl), name, rdata ))
 }
 
-pub fn decompress_name(input: &[u8], mut name: Vec<NameUnit>) -> String {
+pub fn decompress_name(input: &[u8], mut name: Vec<NameUnit>) -> IResult<&[u8], String> {
     if name.iter().all(|unit| !unit.is_pointer()) {
         let mut str_builder = String::new();
         for i in name {
@@ -129,23 +129,39 @@ pub fn decompress_name(input: &[u8], mut name: Vec<NameUnit>) -> String {
                 str_builder.push('.');
             }
         }
-        str_builder
+        IResult::Done(input, str_builder)
     } else {
         let p = name.pop().unwrap().get_pointer_value().unwrap() as usize;
-        let (_,mut n) = parse_dns_name(&input[p..]).unwrap();
+        //let (_,mut n) = parse_dns_name(&input[p..]).unwrap();
+        let (_, mut n) = try_parse!(&input[p..], parse_dns_name);
         name.append(&mut n);
         decompress_name(input, name)
     }
 }
 
-fn parse_rdata(t: u16, i: &[u8]) -> Rdata {
+fn parse_rdata<'a, 'b>(input: &'b [u8], t: u16, input_rdata: &'a [u8]) -> IResult<&'a [u8], Rdata> {
     match t {
+        // A
         1 => {
-            let mut addr = [0u8; 4];
-            addr.copy_from_slice(&i[0..4]);
-            Rdata::A(Ipv4Addr::from(addr))
+            if input_rdata.len() < 4 {
+                IResult::Incomplete(Needed::Size(4))
+            } else {
+                let mut addr = [0u8; 4];
+                addr.copy_from_slice(&input_rdata[0..4]);
+                IResult::Done(&input_rdata[..], Rdata::A(Ipv4Addr::from(addr)))
+            }
         }
-        _ => {Rdata::Generic(i.to_owned())}
+        // CName
+        5 => {
+            let (_, name) = try_parse!(input_rdata, parse_dns_name);
+            //let (_, str_name) = try_parse!(input, decompress_name);
+            match decompress_name(input, name) {
+                IResult::Done(_, str_name) => IResult::Done(&input_rdata[..], Rdata::CName(str_name)),
+                _ => IResult::Error(::nom::ErrorKind::Custom(0)),
+            }
+
+        }
+        _ => {IResult::Done(&input_rdata[..], Rdata::Generic(input_rdata.to_owned()))}
     }
 }
 
@@ -156,23 +172,35 @@ pub fn parse_dns_message(input: &[u8]) -> IResult<&[u8], Message> {
     let (rest, authority_list) = try_parse!(rest, count!(parse_dns_rr, header.nscount as usize));
     let (rest, additional_list) = try_parse!(rest, count!(parse_dns_rr, header.arcount as usize));
 
-    // Ted potrebuju predelat vsechny name unit na string
-    let questions: Vec<Question> = questions.into_iter().map(|(builder, vec_units)| {
-        builder.set_name(decompress_name(&input, vec_units)).finish()
-    }).collect();
+    // TODO: can this be done using iterators?
+    // http://stackoverflow.com/questions/26368288/how-do-i-stop-iteration-and-return-an-error-when-iteratormap-returns-a-result
+    let mut process_questions = Vec::with_capacity(questions.len());
+    for (builder, vec_units) in questions.into_iter() {
+        let name = match decompress_name(&input, vec_units) {
+            IResult::Done(_, name) => name,
+            _ => return IResult::Error(::nom::ErrorKind::Custom(0)),
+        };
+        process_questions.push(builder.set_name(name).finish());
+    }
 
-    let answers: Vec<ResRec> = answers.into_iter().map(|(builder, vec_units, rdata)| {
+    let mut process_answers = Vec::with_capacity(answers.len());
+    for (builder, vec_units, rdata) in answers.into_iter() {
         let qtype = builder.qtype;
-        builder.set_name(decompress_name(&input, vec_units))
-                .set_rdata(parse_rdata(qtype, rdata))
-                .finish()
-    }).collect();
-    // Potom rdata na neco
+        let name = match decompress_name(&input, vec_units) {
+            IResult::Done(_, name) => name,
+            _ => return IResult::Error(::nom::ErrorKind::Custom(0)),
+        };
+        let data = match parse_rdata(input, qtype, rdata) {
+            IResult::Done(_, data) => data,
+            _ => return IResult::Error(::nom::ErrorKind::Custom(0)),
+        };
+        process_answers.push(builder.set_name(name).set_rdata(data).finish());
+    }
 
     IResult::Done(&rest[..], Message {
         header: header,
-        question: questions,
-        answer: answers,
+        question: process_questions,
+        answer: process_answers,
         authority: vec![],
         additional: vec![]
     })

@@ -81,6 +81,16 @@ pub struct QuestionBuilder {
     class: u16,
 }
 
+impl Default for QuestionBuilder {
+    fn default() -> Self {
+        QuestionBuilder {
+            name: None,
+            qtype: 1,
+            class: 1,
+        }
+    }
+}
+
 impl QuestionBuilder {
     pub fn no_name(qtype: u16, class: u16) -> QuestionBuilder {
         QuestionBuilder {
@@ -92,6 +102,16 @@ impl QuestionBuilder {
 
     pub fn set_name(mut self, name: String) -> QuestionBuilder {
         self.name = Some(name);
+        self
+    }
+
+    pub fn set_qtype(mut self, qtype: u16) -> QuestionBuilder {
+        self.qtype = qtype;
+        self
+    }
+
+    pub fn set_class(mut self, class: u16) -> QuestionBuilder {
+        self.class = class;
         self
     }
 
