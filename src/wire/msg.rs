@@ -175,6 +175,8 @@ pub fn parse_dns_message(input: &[u8]) -> IResult<&[u8], Message> {
     let (rest, additional_list) = try_parse!(rest, count!(parse_dns_rr, header.arcount as usize));
 
     // TODO: can this be done using iterators?
+    // Yes, it can! (maybe :-D), don't return IResult from decompress and parse_rdata as 
+    // the slice is not used anyway. Return classic Result instead and use this example:
     // http://stackoverflow.com/questions/26368288/how-do-i-stop-iteration-and-return-an-error-when-iteratormap-returns-a-result
     let mut process_questions = Vec::with_capacity(questions.len());
     for (builder, vec_units) in questions.into_iter() {

@@ -20,3 +20,12 @@ Precti si nejaky doporuceni na psani knihoven, jesli mam pouzivat radeji vec neb
 Coz takle vracet z tech parseru dvojici RR, Vec<NameUnit> at to nemusim mit 2x definovane?
 u tech builderu naimplementovat default metodu a setry na vsechno
 https://pascalhertleif.de/artikel/good-practices-for-writing-rust-libraries/
+
+# Automated tests:
+1. Capture dns traffic:
+tcpdump port 53 -w test-dns.pcap (https://danielmiessler.com/study/#gs.gHMJwGc)
+2. Convert to json:
+tshark -T json -r test-dns.pcap
+3. Filter dns dictionary only:
+cat test-dns.json | python3 -c "import sys, json, pprint as pp; inner = [x['_source']['layers'] for x in json.load(sys.stdin)]; pp.pprint([x['dns'] for x in inner if 'dns' in x])" > test-dns-filtered.json
+4. Use it somehow :-)
