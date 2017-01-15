@@ -1,4 +1,3 @@
-# libdns - Tiny DNS library
+# libresolv
 
-* Written in Rust
-* Using nom as parser framework
+Written completely in Rust using nom as a parser framework.

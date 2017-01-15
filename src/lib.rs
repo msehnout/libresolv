@@ -1,8 +1,8 @@
 #![feature(try_from)]
 
-//! # libdns - A DNS library for Rust programming language
+//! # A DNS library for Rust programming language
 //!
-//! libdns provides essential data structures and functionality
+//! The library provides essential data structures and functionality
 //! for communication inside Domain Name System. List of currently
 //! supported RFCs:
 //!

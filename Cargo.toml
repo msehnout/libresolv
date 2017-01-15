@@ -1,8 +1,8 @@
 [package]
-name = "libdns"
+name = "libresolv"
 version = "0.1.0"
 authors = ["Sehny <msehnout@users.noreply.github.com>"]
-description = "Tiny DNS library"
+description = "DNS library"
 license = "MIT"
 
 [dependencies]
