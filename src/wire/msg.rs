@@ -123,7 +123,7 @@ pub fn parse_dns_rr(input: &[u8]) -> IResult<&[u8], (ResRecBuilder, Vec<NameUnit
     ( ResRecBuilder::no_name(qtype, class, ttl), name, rdata ))
 }
 
-pub fn decompress_name(input: &[u8], mut name: Vec<NameUnit>) -> Result<String, Error> {//IResult<&[u8], String> {
+pub fn decompress_name(input: &[u8], mut name: Vec<NameUnit>) -> Result<String, Error> {
     if name.iter().all(|unit| !unit.is_pointer()) {
         let mut str_builder = String::new();
         for i in name {
@@ -135,38 +135,26 @@ pub fn decompress_name(input: &[u8], mut name: Vec<NameUnit>) -> Result<String, 
         Ok(str_builder)
     } else {
         let p = name.pop().unwrap().get_pointer_value().unwrap() as usize;
-        //let (_,mut n) = parse_dns_name(&input[p..]).unwrap();
-        //let (_, mut n) = try_parse!(&input[p..], parse_dns_name);
         let mut n = parse_dns_name(&input[p..]).to_result().map_err(|_| Error::MalformedPacket)?;
         name.append(&mut n);
         decompress_name(input, name)
     }
 }
 
-fn parse_rdata<'a, 'b>(input: &'b [u8], t: TYPE, input_rdata: &'a [u8]) -> Result<Rdata, Error> {//IResult<&'a [u8], Rdata> {
+fn parse_rdata<'a, 'b>(input: &'b [u8], t: TYPE, input_rdata: &'a [u8]) -> Result<Rdata, Error> {
     use defs::TYPE::*;
     match t {
-        // A
         A => {
             if input_rdata.len() < 4 {
-                //IResult::Incomplete(Needed::Size(4))
                 Err(Error::InsufficientLength)
             } else {
                 let mut addr = [0u8; 4];
                 addr.copy_from_slice(&input_rdata[0..4]);
-                //IResult::Done(&input_rdata[..], Rdata::A(Ipv4Addr::from(addr)))
                 Ok(Rdata::A(Ipv4Addr::from(addr)))
             }
         }
-        // CName
         CNAME => {
-            //let (_, name) = try_parse!(input_rdata, parse_dns_name);
             let name = parse_dns_name(&input_rdata).to_result().map_err(|_| Error::MalformedPacket)?;
-            //let (_, str_name) = try_parse!(input, decompress_name);
-            // match decompress_name(input, name) {
-            //     //IResult::Done(_, str_name) => IResult::Done(&input_rdata[..], Rdata::CName(str_name)),
-            //     _ => IResult::Error(::nom::ErrorKind::Custom(0)),
-            // }
             Ok(Rdata::CName(decompress_name(input, name)?))
 
         }
