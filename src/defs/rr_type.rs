@@ -3,6 +3,8 @@
 
 use std::convert::TryFrom;
 
+use error::Error;
+
 /// RR type as defined in RFC 1035
 #[derive(Copy,Clone,Debug,PartialEq)]
 pub enum TYPE {
@@ -42,7 +44,7 @@ pub enum TYPE {
 
 impl TryFrom<u16> for TYPE {
     // TODO: use Error module
-    type Err = &'static str;
+    type Err = Error;
     fn try_from(num: u16) -> Result<Self, Self::Err> {
         match num {
             1 => Ok(TYPE::A),
@@ -61,7 +63,7 @@ impl TryFrom<u16> for TYPE {
             14 => Ok(TYPE::MINFO),
             15 => Ok(TYPE::MX),
             16 => Ok(TYPE::TXT),
-            _ => Err("No such RR type"),
+            _ => Err(Error::MalformedPacket),
         }
     }
 }

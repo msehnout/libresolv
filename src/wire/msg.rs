@@ -4,6 +4,7 @@ use std::net::Ipv4Addr;
 use nom::{be_u8, be_u16, be_u32, IResult, Needed};
 
 use defs::TYPE;
+use error::Error;
 use message::{Header, Message, Question, QuestionBuilder};
 use rr::{Rdata, ResRec, ResRecBuilder};
 
@@ -122,7 +123,7 @@ pub fn parse_dns_rr(input: &[u8]) -> IResult<&[u8], (ResRecBuilder, Vec<NameUnit
     ( ResRecBuilder::no_name(qtype, class, ttl), name, rdata ))
 }
 
-pub fn decompress_name(input: &[u8], mut name: Vec<NameUnit>) -> IResult<&[u8], String> {
+pub fn decompress_name(input: &[u8], mut name: Vec<NameUnit>) -> Result<String, Error> {//IResult<&[u8], String> {
     if name.iter().all(|unit| !unit.is_pointer()) {
         let mut str_builder = String::new();
         for i in name {
@@ -131,39 +132,45 @@ pub fn decompress_name(input: &[u8], mut name: Vec<NameUnit>) -> IResult<&[u8], 
                 str_builder.push('.');
             }
         }
-        IResult::Done(input, str_builder)
+        Ok(str_builder)
     } else {
         let p = name.pop().unwrap().get_pointer_value().unwrap() as usize;
         //let (_,mut n) = parse_dns_name(&input[p..]).unwrap();
-        let (_, mut n) = try_parse!(&input[p..], parse_dns_name);
+        //let (_, mut n) = try_parse!(&input[p..], parse_dns_name);
+        let mut n = parse_dns_name(&input[p..]).to_result().map_err(|_| Error::MalformedPacket)?;
         name.append(&mut n);
         decompress_name(input, name)
     }
 }
 
-fn parse_rdata<'a, 'b>(input: &'b [u8], t: u16, input_rdata: &'a [u8]) -> IResult<&'a [u8], Rdata> {
+fn parse_rdata<'a, 'b>(input: &'b [u8], t: TYPE, input_rdata: &'a [u8]) -> Result<Rdata, Error> {//IResult<&'a [u8], Rdata> {
+    use defs::TYPE::*;
     match t {
         // A
-        1 => {
+        A => {
             if input_rdata.len() < 4 {
-                IResult::Incomplete(Needed::Size(4))
+                //IResult::Incomplete(Needed::Size(4))
+                Err(Error::InsufficientLength)
             } else {
                 let mut addr = [0u8; 4];
                 addr.copy_from_slice(&input_rdata[0..4]);
-                IResult::Done(&input_rdata[..], Rdata::A(Ipv4Addr::from(addr)))
+                //IResult::Done(&input_rdata[..], Rdata::A(Ipv4Addr::from(addr)))
+                Ok(Rdata::A(Ipv4Addr::from(addr)))
             }
         }
         // CName
-        5 => {
-            let (_, name) = try_parse!(input_rdata, parse_dns_name);
+        CNAME => {
+            //let (_, name) = try_parse!(input_rdata, parse_dns_name);
+            let name = parse_dns_name(&input_rdata).to_result().map_err(|_| Error::MalformedPacket)?;
             //let (_, str_name) = try_parse!(input, decompress_name);
-            match decompress_name(input, name) {
-                IResult::Done(_, str_name) => IResult::Done(&input_rdata[..], Rdata::CName(str_name)),
-                _ => IResult::Error(::nom::ErrorKind::Custom(0)),
-            }
+            // match decompress_name(input, name) {
+            //     //IResult::Done(_, str_name) => IResult::Done(&input_rdata[..], Rdata::CName(str_name)),
+            //     _ => IResult::Error(::nom::ErrorKind::Custom(0)),
+            // }
+            Ok(Rdata::CName(decompress_name(input, name)?))
 
         }
-        _ => {IResult::Done(&input_rdata[..], Rdata::Generic(input_rdata.to_owned()))}
+        _ => {Ok(Rdata::Generic(input_rdata.to_owned()))}
     }
 }
 
@@ -174,35 +181,30 @@ pub fn parse_dns_message(input: &[u8]) -> IResult<&[u8], Message> {
     let (rest, authority_list) = try_parse!(rest, count!(parse_dns_rr, header.nscount as usize));
     let (rest, additional_list) = try_parse!(rest, count!(parse_dns_rr, header.arcount as usize));
 
-    // TODO: can this be done using iterators?
-    // Yes, it can! (maybe :-D), don't return IResult from decompress and parse_rdata as 
-    // the slice is not used anyway. Return classic Result instead and use this example:
-    // http://stackoverflow.com/questions/26368288/how-do-i-stop-iteration-and-return-an-error-when-iteratormap-returns-a-result
-    let mut process_questions = Vec::with_capacity(questions.len());
-    for (builder, vec_units) in questions.into_iter() {
-        let name = match decompress_name(&input, vec_units) {
-            IResult::Done(_, name) => name,
-            _ => return IResult::Error(::nom::ErrorKind::Custom(0)),
-        };
-        process_questions.push(builder.set_name(name).finish());
-    }
+    let questions: Result<Vec<_>, Error> = questions.into_iter()
+        .map(|(builder, vec_units)| {
+            Ok(builder.set_name(try!(decompress_name(&input, vec_units))).finish())
+        })
+        .collect();
+    let process_questions = match questions {
+        Ok(q) => q,
+        _ => return IResult::Error(::nom::ErrorKind::Custom(0)),
+    };
 
-    let mut process_answers = Vec::with_capacity(answers.len());
-    for (builder, vec_units, rdata) in answers.into_iter() {
-        let qtype = builder.qtype;
-        if let Err(_) = TYPE::try_from(qtype) {
-            return IResult::Error(::nom::ErrorKind::Custom(0))
-        }
-        let name = match decompress_name(&input, vec_units) {
-            IResult::Done(_, name) => name,
-            _ => return IResult::Error(::nom::ErrorKind::Custom(0)),
-        };
-        let data = match parse_rdata(input, qtype, rdata) {
-            IResult::Done(_, data) => data,
-            _ => return IResult::Error(::nom::ErrorKind::Custom(0)),
-        };
-        process_answers.push(builder.set_name(name).set_rdata(data).finish());
-    }
+    let answers: Result<Vec<_>, Error> = answers.into_iter()
+        .map(|(builder, vec_units, rdata)| {
+            let qtype = TYPE::try_from(builder.qtype)?;
+            let ret = builder
+                .set_name(try!(decompress_name(&input, vec_units)))
+                .set_rdata(try!(parse_rdata(&input, qtype, rdata)))
+                .finish();
+            Ok(ret)
+        })
+        .collect();
+    let process_answers = match answers {
+        Ok(a) => a,
+        _ => return IResult::Error(::nom::ErrorKind::Custom(0)),
+    };
 
     IResult::Done(&rest[..], Message {
         header: header,
