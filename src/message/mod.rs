@@ -29,7 +29,7 @@ use std::convert::TryFrom;
 pub struct Header {
     /// Transaction ID used to match replies to queries
     pub id: u16,
-    /// Query (0, false), Respense (1, true)
+    /// Query (0, false), Response (1, true)
     pub response: bool,
     /// Kind of query
     /// * 0 - standard
@@ -67,6 +67,15 @@ pub struct Message {
     pub answer: Vec<ResRec>,
     pub authority: Vec<ResRec>,
     pub additional: Vec<ResRec>,
+}
+
+impl Message {
+    pub fn is_query(&self) -> bool{
+        !self.header.response
+    }
+    pub fn is_answer(&self) -> bool{
+        self.header.response
+    }
 }
 
 #[derive(Debug)]

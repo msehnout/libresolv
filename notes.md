@@ -16,10 +16,11 @@ nebo na parsovani cele te zpravy nepouzivat makro, ale vlastni funkci a jen z ni
 * Found awesome tool: cargo expand (https://github.com/dtolnay/cargo-expand) ... and it's even more awesome with pygments
 
 # Ostatni:
-Precti si nejaky doporuceni na psani knihoven, jesli mam pouzivat radeji vec nebo slice
-Coz takle vracet z tech parseru dvojici RR, Vec<NameUnit> at to nemusim mit 2x definovane?
-u tech builderu naimplementovat default metodu a setry na vsechno
-https://pascalhertleif.de/artikel/good-practices-for-writing-rust-libraries/
+ * Precti si nejaky doporuceni na psani knihoven, jesli mam pouzivat radeji vec nebo slice
+ * Coz takle vracet z tech parseru dvojici RR, Vec<NameUnit> at to nemusim mit 2x definovane?
+ * u tech builderu naimplementovat default metodu a setry na vsechno
+ * https://pascalhertleif.de/artikel/good-practices-for-writing-rust-libraries/
+ * Pouzit: https://crates.io/crates/byteorder
 
 # Automated tests:
 1. Capture dns traffic:
